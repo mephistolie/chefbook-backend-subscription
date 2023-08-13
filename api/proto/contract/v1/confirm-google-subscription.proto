@@ -1,0 +1,14 @@
+syntax = "proto3";
+package v1;
+
+option go_package = "github.com/mephistolie/chefbook-backend-subscription/api/proto/v1";
+
+message ConfirmGoogleSubscriptionRequest {
+  string userId = 1;
+  string subscriptionId = 2;
+  string purchaseToken = 3;
+}
+
+message ConfirmGoogleSubscriptionResponse {
+  string message = 1;
+}

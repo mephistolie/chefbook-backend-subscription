@@ -1,0 +1,144 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "chefbook-backend-subscription-service.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "chefbook-backend-subscription-service.labels" . | nindent 4 }}
+spec:
+  {{- if not .Values.autoscaling.enabled }}
+  replicas: {{ .Values.replicaCount }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "chefbook-backend-subscription-service.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      labels:
+        {{- include "chefbook-backend-subscription-service.selectorLabels" . | nindent 8 }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: {{ .Chart.Name }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          image: "{{ .Values.image.registry }}/{{ .Values.image.container }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          env:
+            - name: ENVIRONMENT
+              value: {{ include "chefbook-backend-subscription-service.environment" . }}
+            - name: PORT
+              value: {{ .Values.service.port | quote }}
+            - name: LOGS_PATH
+              value: {{ .Values.config.logsPath }}
+
+            - name: GOOGLE_PACKAGE_NAME
+              value: {{ .Values.config.google.packageName }}
+            - name: GOOGLE_JSON_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.secrets.google.name }}
+                  key: {{ .Values.secrets.google.credentialsRef }}
+            - name: GOOGLE_PRODUCT_ID_PREMIUM
+              value: {{ .Values.config.google.productIdPremium }}
+            - name: GOOGLE_PRODUCT_ID_MAXIMUM
+              value: {{ .Values.config.google.productIdMaximum }}
+
+            # Firebase
+
+            - name: FIREBASE_CREDENTIALS
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.secrets.firebase.name }}
+                  key: {{ .Values.secrets.firebase.credentialsRef }}
+
+            # Profile Microservice
+
+            - name: AUTH_ADDR
+              value: "{{ .Values.services.auth.name }}.{{ .Values.services.auth.namespace | default .Release.Namespace }}.svc.cluster.local:{{ .Values.services.auth.port }}"
+
+            # PostgreSQL
+
+            - name: DB_HOST
+              value: {{ .Values.config.postgres.host }}
+            - name: DB_PORT
+              value: {{ .Values.config.postgres.port | quote }}
+            - name: DB_USER
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.secrets.postgres.name }}
+                  key: {{ .Values.secrets.postgres.userRef }}
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.secrets.postgres.name }}
+                  key: {{ .Values.secrets.postgres.passwordRef }}
+            - name: DB_NAME
+              value: {{ .Values.config.postgres.dbName }}
+
+            # RabbitMQ
+
+            - name: AMQP_HOST
+              value: "{{ .Values.config.rabbitmq.name }}.{{ .Values.config.rabbitmq.namespace | default .Release.Namespace }}.svc.cluster.local"
+            - name: AMQP_PORT
+              value: {{ .Values.config.rabbitmq.port | quote }}
+            - name: AMQP_USER
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.secrets.rabbitmq.name }}
+                  key: {{ .Values.secrets.rabbitmq.userRef }}
+            - name: AMQP_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.secrets.rabbitmq.name }}
+                  key: {{ .Values.secrets.rabbitmq.passwordRef }}
+            - name: AMQP_VHOST
+              value: {{ .Values.config.rabbitmq.vhost }}
+
+            # SMTP
+
+            - name: SMTP_HOST
+              value: {{ .Values.config.smtp.host }}
+            - name: SMTP_PORT
+              value: {{ .Values.config.smtp.port | quote }}
+            - name: SMTP_EMAIL
+              value: {{ .Values.config.smtp.email }}
+            - name: SMTP_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.secrets.smtp.name }}
+                  key: {{ .Values.secrets.smtp.passwordRef }}
+            - name: SMTP_ATTEMPTS
+              value: {{ .Values.config.smtp.sendAttempts | quote }}
+
+          ports:
+            - name: http
+              containerPort: {{ .Values.service.port }}
+              protocol: TCP
+          livenessProbe:
+            grpc:
+              port: {{ .Values.service.port }}
+            periodSeconds: 60
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

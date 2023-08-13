@@ -1,0 +1,21 @@
+syntax = "proto3";
+package v1;
+
+option go_package = "github.com/mephistolie/chefbook-backend-subscription/api/proto/v1";
+
+import "google/protobuf/timestamp.proto";
+
+message Subscription {
+  string plan = 1;
+  optional string source = 2;
+  google.protobuf.Timestamp expirationDate = 3;
+  bool autoRenew = 4;
+}
+
+message GetProfileSubscriptionsRequest {
+  string userId = 1;
+}
+
+message GetProfileSubscriptionsResponse {
+  repeated Subscription subscriptions = 1;
+}

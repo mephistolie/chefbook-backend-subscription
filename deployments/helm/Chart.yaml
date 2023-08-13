@@ -1,0 +1,6 @@
+apiVersion: v2
+name: chefbook-backend-subscription-service
+description: ChefBook Subscription Microservice Helm chart
+type: application
+version: 1.0.0
+appVersion: "1.0.0"

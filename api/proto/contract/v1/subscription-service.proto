@@ -1,0 +1,14 @@
+syntax = "proto3";
+package v1;
+
+option go_package = "github.com/mephistolie/chefbook-backend-subscription/api/proto/v1";
+
+import "v1/get-profile-subscriptions.proto";
+import "v1/get-profile-current-subscription.proto";
+import "v1/confirm-google-subscription.proto";
+
+service SubscriptionService {
+  rpc GetProfileSubscriptions(GetProfileSubscriptionsRequest) returns (GetProfileSubscriptionsResponse);
+  rpc GetProfileCurrentSubscription(GetProfileCurrentSubscriptionRequest) returns (GetProfileCurrentSubscriptionResponse);
+  rpc ConfirmGoogleSubscription(ConfirmGoogleSubscriptionRequest) returns (ConfirmGoogleSubscriptionResponse);
+}
