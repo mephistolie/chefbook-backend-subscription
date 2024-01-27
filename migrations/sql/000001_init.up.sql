@@ -10,17 +10,15 @@ CREATE TABLE subscriptions
     start_timestamp      TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now():: timestamp,
     expiration_timestamp TIMESTAMP WITH TIME ZONE          DEFAULT NULL,
     auto_renew           BOOLEAN                           DEFAULT false,
-
-    last_check           TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now():: timestamp,
     UNIQUE (user_id, plan, source)
 );
 
-CREATE INDEX subscriptions_renew_key ON subscriptions (expiration_timestamp, last_check);
+CREATE INDEX subscriptions_renew_key ON subscriptions (expiration_timestamp);
 
 CREATE TABLE google
 (
-    user_id uuid REFERENCES subscriptions (user_id) ON DELETE CASCADE NOT NULL,
-    purchaseToken                                                     NOT NULL UNIQUE,
+    user_id       uuid REFERENCES subscriptions (user_id) ON DELETE CASCADE NOT NULL,
+    purchaseToken VARCHAR(128)                                              NOT NULL UNIQUE
 );
 
 CREATE TABLE inbox

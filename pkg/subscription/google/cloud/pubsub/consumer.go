@@ -51,7 +51,7 @@ func (c *SubscriptionEventConsumer) Subscribe(handler SubscriptionEventHandler) 
 			SubscriptionId:   notification.SubscriptionNotification.SubscriptionId,
 			PurchaseToken:    notification.SubscriptionNotification.PurchaseToken,
 		}
-		if err := handler.Handle(event); err != nil {
+		if err := handler.HandleSubscriptionEvent(event); err != nil {
 			m.Nack()
 		}
 

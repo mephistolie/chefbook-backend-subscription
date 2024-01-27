@@ -7,13 +7,13 @@ type Repository struct {
 }
 
 func NewRepository(cfg *config.Config) (*Repository, error) {
-	profileService, err := NewAuth(*cfg.AuthService.Addr)
+	subscriptionService, err := NewAuth(*cfg.AuthService.Addr)
 	if err != nil {
 		return nil, err
 	}
 
 	return &Repository{
-		Auth: profileService,
+		Auth: subscriptionService,
 	}, nil
 }
 

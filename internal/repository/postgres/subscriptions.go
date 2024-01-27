@@ -17,7 +17,7 @@ func (r *Repository) GetProfileSubscriptions(userId uuid.UUID) []entity.Subscrip
 	query := fmt.Sprintf(`
 		SELECT plan, source, expiration_timestamp, auto_renew
 		FROM %s
-		WHERE user_id=$1 AND expiration_timestamp > $2 AND start_timestamp <= $3
+		WHERE user_id=$1 AND (expiration_timestamp IS NULL OR expiration_timestamp > $2) AND start_timestamp <= $3
 	`, subscriptionsTable)
 
 	rows, err := r.db.Query(query, userId, time.Now().Add(24*time.Hour), time.Now())

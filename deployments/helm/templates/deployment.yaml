@@ -61,7 +61,7 @@ spec:
                   name: {{ .Values.secrets.firebase.name }}
                   key: {{ .Values.secrets.firebase.credentialsRef }}
 
-            # Profile Microservice
+            # Auth Microservice
 
             - name: AUTH_ADDR
               value: "{{ .Values.services.auth.name }}.{{ .Values.services.auth.namespace | default .Release.Namespace }}.svc.cluster.local:{{ .Values.services.auth.port }}"

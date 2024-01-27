@@ -84,6 +84,9 @@ func Run(cfg *config.Config) {
 		"database": func(ctx context.Context) error {
 			return db.Close()
 		},
+		"services": func(ctx context.Context) error {
+			return grpcRepository.Stop()
+		},
 		"mq": func(ctx context.Context) error {
 			if mqSubscriber != nil {
 				_ = mqSubscriber.Stop()

@@ -64,7 +64,7 @@ service:
   type: ClusterIP
   port: 8080
 
-replicaCount: 2
+replicaCount: 3
 
 autoscaling:
   enabled: false
