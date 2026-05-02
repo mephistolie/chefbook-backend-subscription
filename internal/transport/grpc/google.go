@@ -7,13 +7,13 @@ import (
 	api "github.com/mephistolie/chefbook-backend-subscription/api/proto/implementation/v1"
 )
 
-func (s *SubscriptionServer) ConfirmGoogleSubscription(_ context.Context, req *api.ConfirmGoogleSubscriptionRequest) (*api.ConfirmGoogleSubscriptionResponse, error) {
+func (s *SubscriptionServer) ConfirmGoogleSubscription(ctx context.Context, req *api.ConfirmGoogleSubscriptionRequest) (*api.ConfirmGoogleSubscriptionResponse, error) {
 	userId, err := uuid.Parse(req.UserId)
 	if err != nil {
 		return nil, fail.GrpcInvalidBody
 	}
 
-	if err = s.service.ConfirmGoogleSubscription(userId, req.SubscriptionId, req.PurchaseToken); err != nil {
+	if err = s.service.ConfirmGoogleSubscription(ctx, userId, req.SubscriptionId, req.PurchaseToken); err != nil {
 		return nil, err
 	}
 

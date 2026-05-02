@@ -1,6 +1,7 @@
 package postgres
 
 import (
+	"context"
 	"database/sql"
 	"errors"
 	"fmt"
@@ -19,15 +20,14 @@ const (
 	inboxTable = "inbox"
 
 	errUniqueViolation = "23505"
-	err
 )
 
 type Repository struct {
 	db *sqlx.DB
 }
 
-func Connect(cfg config.Database) (*sqlx.DB, error) {
-	db, err := sqlx.Connect("pgx",
+func Connect(ctx context.Context, cfg config.Database) (*sqlx.DB, error) {
+	db, err := sqlx.ConnectContext(ctx, "pgx",
 		fmt.Sprintf("host=%s port=%d user=%s dbname=%s password=%s sslmode=require",
 			*cfg.Host, *cfg.Port, *cfg.User, *cfg.DBName, *cfg.Password))
 	if err != nil {
@@ -43,8 +43,8 @@ func NewRepository(db *sqlx.DB) *Repository {
 	}
 }
 
-func (r *Repository) startTransaction() (*sql.Tx, error) {
-	tx, err := r.db.Begin()
+func (r *Repository) startTransaction(ctx context.Context) (*sql.Tx, error) {
+	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {
 		log.Error("unable to begin transaction: ", err)
 		return nil, fail.GrpcUnknown

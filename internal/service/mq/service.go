@@ -28,19 +28,21 @@ func NewService(
 }
 
 func (s *Service) HandleMessage(msg model.MessageData) error {
+	ctx := context.Background()
+
 	log.Infof("processing message %s with type %s", msg.Id, msg.Type)
 	switch msg.Type {
 	case auth.MsgTypeProfileFirebaseImport:
-		return s.handleFirebaseImportMsg(msg.Id, msg.Body)
+		return s.handleFirebaseImportMsg(ctx, msg.Id, msg.Body)
 	case auth.MsgTypeProfileDeleted:
-		return s.handleProfileDeletedMsg(msg.Id, msg.Body)
+		return s.handleProfileDeletedMsg(ctx, msg.Id, msg.Body)
 	default:
 		log.Warnf("got unsupported message type %s for message %s", msg.Type, msg.Id)
 		return errors.New("not implemented")
 	}
 }
 
-func (s *Service) handleFirebaseImportMsg(messageId uuid.UUID, data []byte) error {
+func (s *Service) handleFirebaseImportMsg(ctx context.Context, messageId uuid.UUID, data []byte) error {
 	var body auth.MsgBodyProfileFirebaseImport
 	if err := json.Unmarshal(data, &body); err != nil {
 		return err
@@ -51,20 +53,20 @@ func (s *Service) handleFirebaseImportMsg(messageId uuid.UUID, data []byte) erro
 		return err
 	}
 
-	profile, err := s.firebase.GetProfile(context.Background(), body.FirebaseId)
+	profile, err := s.firebase.GetProfile(ctx, body.FirebaseId)
 	if err != nil {
 		log.Warnf("unable to get firebase profile for user %s: %s", body.UserId, err)
 		return err
 	}
 
 	if profile.IsPremium {
-		return s.repo.ImportPremiumVersion(userId, messageId)
+		return s.repo.ImportPremiumVersion(ctx, userId, messageId)
 	}
 
 	return nil
 }
 
-func (s *Service) handleProfileDeletedMsg(messageId uuid.UUID, data []byte) error {
+func (s *Service) handleProfileDeletedMsg(ctx context.Context, messageId uuid.UUID, data []byte) error {
 	var body auth.MsgBodyProfileDeleted
 	if err := json.Unmarshal(data, &body); err != nil {
 		return err
@@ -76,5 +78,5 @@ func (s *Service) handleProfileDeletedMsg(messageId uuid.UUID, data []byte) erro
 	}
 
 	log.Infof("deleting user %s...", body.UserId)
-	return s.repo.DeleteProfile(userId, messageId)
+	return s.repo.DeleteProfile(ctx, userId, messageId)
 }

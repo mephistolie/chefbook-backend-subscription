@@ -1,6 +1,8 @@
 package service
 
 import (
+	"context"
+
 	"github.com/google/uuid"
 	"github.com/mephistolie/chefbook-backend-common/firebase"
 	"github.com/mephistolie/chefbook-backend-common/log"
@@ -22,13 +24,14 @@ type Service struct {
 }
 
 type Subscription interface {
-	GetProfileSubscriptions(userId uuid.UUID) []entity.Subscription
-	GetProfileCurrentSubscription(userId uuid.UUID) entity.Subscription
+	GetProfileSubscriptions(ctx context.Context, userId uuid.UUID) []entity.Subscription
+	GetProfileCurrentSubscription(ctx context.Context, userId uuid.UUID) entity.Subscription
 
-	ConfirmGoogleSubscription(userId uuid.UUID, googleSubId, purchaseToken string) error
+	ConfirmGoogleSubscription(ctx context.Context, userId uuid.UUID, googleSubId, purchaseToken string) error
 }
 
 func New(
+	ctx context.Context,
 	repo *postgres.Repository,
 	grpcRepository *grpc.Repository,
 	cfg *config.Config,
@@ -52,7 +55,7 @@ func New(
 
 	var googleClient *googleRest.Client = nil
 	if len(*cfg.Google.JsonKey) > 0 {
-		googleClient, err = googleRest.NewClient(*cfg.Google.PackageName, []byte(*cfg.Google.JsonKey))
+		googleClient, err = googleRest.NewClient(ctx, *cfg.Google.PackageName, []byte(*cfg.Google.JsonKey))
 		if err != nil {
 			return nil, err
 		}

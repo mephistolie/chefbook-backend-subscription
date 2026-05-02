@@ -22,7 +22,9 @@ func Run(cfg *config.Config) {
 	log.Init(*cfg.LogsPath, *cfg.Environment == config.EnvDev)
 	cfg.Print()
 
-	db, err := postgres.Connect(cfg.Database)
+	ctx := context.Background()
+
+	db, err := postgres.Connect(ctx, cfg.Database)
 	if err != nil {
 		log.Fatal(err)
 		return
@@ -36,7 +38,7 @@ func Run(cfg *config.Config) {
 		return
 	}
 
-	subscriptionService, err := service.New(repository, grpcRepository, cfg)
+	subscriptionService, err := service.New(ctx, repository, grpcRepository, cfg)
 	if err != nil {
 		log.Fatal(err)
 		return
@@ -76,7 +78,7 @@ func Run(cfg *config.Config) {
 		}
 	}()
 
-	wait := shutdown.Graceful(context.Background(), 5*time.Second, map[string]shutdown.Operation{
+	wait := shutdown.Graceful(ctx, 5*time.Second, map[string]shutdown.Operation{
 		"grpc-server": func(ctx context.Context) error {
 			grpcServer.GracefulStop()
 			return nil

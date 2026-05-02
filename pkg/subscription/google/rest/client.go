@@ -9,9 +9,9 @@ import (
 )
 
 type Api interface {
-	GetSubscriptionInfo(subscriptionId string, purchaseToken string) (*SubscriptionPurchase, error)
-	AcknowledgeSubscriptionInfo(subscriptionId string, purchaseToken string) error
-	CancelSubscriptionInfo(subscriptionId string, purchaseToken string) error
+	GetSubscriptionInfo(ctx context.Context, subscriptionId string, purchaseToken string) (*SubscriptionPurchase, error)
+	AcknowledgeSubscriptionInfo(ctx context.Context, subscriptionId string, purchaseToken string) error
+	CancelSubscriptionInfo(ctx context.Context, subscriptionId string, purchaseToken string) error
 }
 
 type Client struct {
@@ -19,7 +19,7 @@ type Client struct {
 	packageName string
 }
 
-func NewClient(packageName string, jsonKey []byte) (*Client, error) {
+func NewClient(ctx context.Context, packageName string, jsonKey []byte) (*Client, error) {
 	jwtCfg, err := google.JWTConfigFromJSON(
 		jsonKey,
 		"https://www.googleapis.com/auth/androidpublisher",
@@ -28,7 +28,7 @@ func NewClient(packageName string, jsonKey []byte) (*Client, error) {
 		return nil, err
 	}
 
-	client := jwtCfg.Client(context.Background())
+	client := jwtCfg.Client(ctx)
 
 	return &Client{
 		client:      client,

@@ -8,13 +8,13 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
-func (s *SubscriptionServer) GetProfileSubscriptions(_ context.Context, req *api.GetProfileSubscriptionsRequest) (*api.GetProfileSubscriptionsResponse, error) {
+func (s *SubscriptionServer) GetProfileSubscriptions(ctx context.Context, req *api.GetProfileSubscriptionsRequest) (*api.GetProfileSubscriptionsResponse, error) {
 	userId, err := uuid.Parse(req.UserId)
 	if err != nil {
 		return nil, fail.GrpcInvalidBody
 	}
 
-	subscriptions := s.service.GetProfileSubscriptions(userId)
+	subscriptions := s.service.GetProfileSubscriptions(ctx, userId)
 	dtos := make([]*api.Subscription, len(subscriptions))
 
 	for i, sub := range subscriptions {
@@ -33,13 +33,13 @@ func (s *SubscriptionServer) GetProfileSubscriptions(_ context.Context, req *api
 	return &api.GetProfileSubscriptionsResponse{Subscriptions: dtos}, nil
 }
 
-func (s *SubscriptionServer) GetProfileCurrentSubscription(_ context.Context, req *api.GetProfileCurrentSubscriptionRequest) (*api.GetProfileCurrentSubscriptionResponse, error) {
+func (s *SubscriptionServer) GetProfileCurrentSubscription(ctx context.Context, req *api.GetProfileCurrentSubscriptionRequest) (*api.GetProfileCurrentSubscriptionResponse, error) {
 	userId, err := uuid.Parse(req.UserId)
 	if err != nil {
 		return nil, fail.GrpcInvalidBody
 	}
 
-	sub := s.service.GetProfileCurrentSubscription(userId)
+	sub := s.service.GetProfileCurrentSubscription(ctx, userId)
 	var expirationDate *timestamppb.Timestamp
 	if sub.Expiration != nil {
 		expirationDate = timestamppb.New(*sub.Expiration)

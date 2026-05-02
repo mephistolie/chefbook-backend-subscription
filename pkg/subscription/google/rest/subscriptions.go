@@ -1,9 +1,11 @@
 package rest
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"io"
+	"net/http"
 	"strings"
 )
 
@@ -22,15 +24,20 @@ type SubscriptionPurchase struct {
 	AcknowledgementState int     `json:"acknowledgementState"`
 }
 
-func (c *Client) GetSubscriptionInfo(subscriptionId string, purchaseToken string) (*SubscriptionPurchase, error) {
+func (c *Client) GetSubscriptionInfo(ctx context.Context, subscriptionId string, purchaseToken string) (*SubscriptionPurchase, error) {
 	url := "https://androidpublisher.googleapis.com/androidpublisher/v3/applications/" + c.packageName +
 		"/purchases/subscriptions/" + subscriptionId +
 		"/tokens/" + purchaseToken
 
-	res, err := c.client.Get(url)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
 		return nil, err
 	}
+	res, err := c.client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer res.Body.Close()
 	if res.StatusCode != 200 {
 		return nil, errors.New("error status code")
 	}
@@ -48,15 +55,21 @@ func (c *Client) GetSubscriptionInfo(subscriptionId string, purchaseToken string
 	return &body, nil
 }
 
-func (c *Client) AcknowledgeSubscriptionInfo(subscriptionId string, purchaseToken string) error {
+func (c *Client) AcknowledgeSubscriptionInfo(ctx context.Context, subscriptionId string, purchaseToken string) error {
 	url := "https://androidpublisher.googleapis.com/androidpublisher/v3/applications/" + c.packageName +
 		"/purchases/subscriptions/" + subscriptionId +
 		"/tokens/" + purchaseToken + ":acknowledge"
 
-	res, err := c.client.Post(url, "application/json", strings.NewReader(""))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, strings.NewReader(""))
 	if err != nil {
 		return err
 	}
+	req.Header.Set("Content-Type", "application/json")
+	res, err := c.client.Do(req)
+	if err != nil {
+		return err
+	}
+	defer res.Body.Close()
 	if res.StatusCode != 200 {
 		return errors.New("error status code")
 	}
@@ -64,15 +77,21 @@ func (c *Client) AcknowledgeSubscriptionInfo(subscriptionId string, purchaseToke
 	return nil
 }
 
-func (c *Client) CancelSubscriptionInfo(subscriptionId string, purchaseToken string) error {
+func (c *Client) CancelSubscriptionInfo(ctx context.Context, subscriptionId string, purchaseToken string) error {
 	url := "https://androidpublisher.googleapis.com/androidpublisher/v3/applications/" + c.packageName +
 		"/purchases/subscriptions/" + subscriptionId +
 		"/tokens/" + purchaseToken + ":cancel"
 
-	res, err := c.client.Post(url, "application/json", strings.NewReader(""))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, strings.NewReader(""))
 	if err != nil {
 		return err
 	}
+	req.Header.Set("Content-Type", "application/json")
+	res, err := c.client.Do(req)
+	if err != nil {
+		return err
+	}
+	defer res.Body.Close()
 	if res.StatusCode != 200 {
 		return errors.New("error status code")
 	}

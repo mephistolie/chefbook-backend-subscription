@@ -14,23 +14,23 @@ import (
 	"time"
 )
 
-func (s *Service) ConfirmGoogleSubscription(userId uuid.UUID, googleSubId, purchaseToken string) error {
-	input, err := s.getGoogleSubscriptionInput(userId, googleSubId, purchaseToken)
+func (s *Service) ConfirmGoogleSubscription(ctx context.Context, userId uuid.UUID, googleSubId, purchaseToken string) error {
+	input, err := s.getGoogleSubscriptionInput(ctx, userId, googleSubId, purchaseToken)
 	if err != nil {
 		return nil
 	}
 
-	if err = s.repo.ClaimProfileSubscription(input); err != nil {
+	if err = s.repo.ClaimProfileSubscription(ctx, input); err != nil {
 		return err
 	}
 
-	if err = s.googleApi.AcknowledgeSubscriptionInfo(googleSubId, purchaseToken); err != nil {
+	if err = s.googleApi.AcknowledgeSubscriptionInfo(ctx, googleSubId, purchaseToken); err != nil {
 		log.Errorf("unable to acknowledge purchase: %s", err)
 		return err
 	}
 
 	go func() {
-		if info, err := s.grpc.Auth.GetAuthInfo(context.Background(), &authApi.GetAuthInfoRequest{Id: userId.String()}); err == nil {
+		if info, err := s.grpc.Auth.GetAuthInfo(context.WithoutCancel(ctx), &authApi.GetAuthInfoRequest{Id: userId.String()}); err == nil {
 			s.mail.SendEncryptedVaultDeletionMail(info.Email, input.Plan)
 		}
 	}()
@@ -38,23 +38,23 @@ func (s *Service) ConfirmGoogleSubscription(userId uuid.UUID, googleSubId, purch
 	return nil
 }
 
-func (s *Service) HandleSubscriptionEvent(event pubsub.SubscriptionEvent) error {
+func (s *Service) HandleSubscriptionEvent(ctx context.Context, event pubsub.SubscriptionEvent) error {
 	switch event.NotificationType {
 	case pubsub.NotificationTypeSubscriptionRenewed:
-		return s.onSubscriptionRenewed(event)
+		return s.onSubscriptionRenewed(ctx, event)
 	case pubsub.NotificationTypeSubscriptionCanceled:
-		return s.onSubscriptionAutoRenewStatusChanged(event, false)
+		return s.onSubscriptionAutoRenewStatusChanged(ctx, event, false)
 	case pubsub.NotificationTypeSubscriptionRestarted:
-		return s.onSubscriptionAutoRenewStatusChanged(event, true)
+		return s.onSubscriptionAutoRenewStatusChanged(ctx, event, true)
 	case pubsub.NotificationTypeSubscriptionRevoked:
-		return s.onSubscriptionRevoked(event)
+		return s.onSubscriptionRevoked(ctx, event)
 	default:
 		return nil
 	}
 }
 
-func (s *Service) onSubscriptionRenewed(event pubsub.SubscriptionEvent) error {
-	userId, err := s.repo.GetUserIdByGooglePurchaseToken(event.PurchaseToken)
+func (s *Service) onSubscriptionRenewed(ctx context.Context, event pubsub.SubscriptionEvent) error {
+	userId, err := s.repo.GetUserIdByGooglePurchaseToken(ctx, event.PurchaseToken)
 	if err != nil {
 		return err
 	}
@@ -62,7 +62,7 @@ func (s *Service) onSubscriptionRenewed(event pubsub.SubscriptionEvent) error {
 		return nil
 	}
 
-	input, err := s.getGoogleSubscriptionInput(*userId, event.SubscriptionId, event.PurchaseToken)
+	input, err := s.getGoogleSubscriptionInput(ctx, *userId, event.SubscriptionId, event.PurchaseToken)
 	if err != nil {
 		if err == subscriptionFail.GrpcSubscriptionInactive || err == subscriptionFail.GrpcSubscriptionExpired {
 			return nil
@@ -70,11 +70,11 @@ func (s *Service) onSubscriptionRenewed(event pubsub.SubscriptionEvent) error {
 		return err
 	}
 
-	return s.repo.UpdateProfileSubscription(input)
+	return s.repo.UpdateProfileSubscription(ctx, input)
 }
 
-func (s *Service) onSubscriptionAutoRenewStatusChanged(event pubsub.SubscriptionEvent, autoRenew bool) error {
-	userId, err := s.repo.GetUserIdByGooglePurchaseToken(event.PurchaseToken)
+func (s *Service) onSubscriptionAutoRenewStatusChanged(ctx context.Context, event pubsub.SubscriptionEvent, autoRenew bool) error {
+	userId, err := s.repo.GetUserIdByGooglePurchaseToken(ctx, event.PurchaseToken)
 	if err != nil {
 		return err
 	}
@@ -88,7 +88,7 @@ func (s *Service) onSubscriptionAutoRenewStatusChanged(event pubsub.Subscription
 		return subscriptionFail.GrpcInvalidSubscriptionId
 	}
 
-	return s.repo.SetProfileSubscriptionAutoRenewStatus(entity.SubscriptionInput{
+	return s.repo.SetProfileSubscriptionAutoRenewStatus(ctx, entity.SubscriptionInput{
 		UserId:    *userId,
 		Plan:      *plan,
 		Source:    entity.SourceGoogle,
@@ -96,8 +96,8 @@ func (s *Service) onSubscriptionAutoRenewStatusChanged(event pubsub.Subscription
 	})
 }
 
-func (s *Service) onSubscriptionRevoked(event pubsub.SubscriptionEvent) error {
-	userId, err := s.repo.GetUserIdByGooglePurchaseToken(event.PurchaseToken)
+func (s *Service) onSubscriptionRevoked(ctx context.Context, event pubsub.SubscriptionEvent) error {
+	userId, err := s.repo.GetUserIdByGooglePurchaseToken(ctx, event.PurchaseToken)
 	if err != nil {
 		return err
 	}
@@ -111,10 +111,10 @@ func (s *Service) onSubscriptionRevoked(event pubsub.SubscriptionEvent) error {
 		return subscriptionFail.GrpcInvalidSubscriptionId
 	}
 
-	return s.repo.EndProfileSubscription(*userId, *subscriptionId, entity.SourceGoogle)
+	return s.repo.EndProfileSubscription(ctx, *userId, *subscriptionId, entity.SourceGoogle)
 }
 
-func (s *Service) getGoogleSubscriptionInput(userId uuid.UUID, googleSubId, purchaseToken string) (entity.SubscriptionInput, error) {
+func (s *Service) getGoogleSubscriptionInput(ctx context.Context, userId uuid.UUID, googleSubId, purchaseToken string) (entity.SubscriptionInput, error) {
 	if s.googleApi == nil {
 		log.Warnf("google subscription is disabled")
 		return entity.SubscriptionInput{}, subscriptionFail.GrpcInvalidPaymentService
@@ -125,7 +125,7 @@ func (s *Service) getGoogleSubscriptionInput(userId uuid.UUID, googleSubId, purc
 		return entity.SubscriptionInput{}, subscriptionFail.GrpcInvalidSubscriptionId
 	}
 
-	info, err := s.googleApi.GetSubscriptionInfo(googleSubId, purchaseToken)
+	info, err := s.googleApi.GetSubscriptionInfo(ctx, googleSubId, purchaseToken)
 	if err != nil {
 		log.Debugf("unable to validate purchase: %s", err)
 		return entity.SubscriptionInput{}, fail.CreateGrpcClient(fail.TypeInvalidBody, "unable to validate purchase")

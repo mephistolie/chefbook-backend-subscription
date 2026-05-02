@@ -1,5 +1,7 @@
 package pubsub
 
+import "context"
+
 type SubscriptionEvent struct {
 	NotificationType int
 	SubscriptionId   string
@@ -7,5 +9,5 @@ type SubscriptionEvent struct {
 }
 
 type SubscriptionEventHandler interface {
-	HandleSubscriptionEvent(event SubscriptionEvent) error
+	HandleSubscriptionEvent(ctx context.Context, event SubscriptionEvent) error
 }

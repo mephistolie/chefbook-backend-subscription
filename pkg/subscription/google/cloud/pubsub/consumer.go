@@ -1,39 +1,38 @@
 package pubsub
 
 import (
-	"cloud.google.com/go/pubsub"
 	"context"
 	"encoding/base64"
 	"encoding/json"
+
+	"cloud.google.com/go/pubsub/v2"
 	"github.com/mephistolie/chefbook-backend-common/log"
 	"google.golang.org/api/option"
 )
-import _ "cloud.google.com/go/pubsub"
 
 type SubscriptionEventConsumer struct {
-	subscription *pubsub.Subscription
-	cancelFunc   *context.CancelFunc
+	subscriber *pubsub.Subscriber
+	cancelFunc *context.CancelFunc
 }
 
-func NewSubscriptionEventConsumer(projectId, subscriptionId string, credentialsJson []byte) (*SubscriptionEventConsumer, error) {
+func NewSubscriptionEventConsumer(ctx context.Context, projectId, subscriptionId string, credentialsJson []byte) (*SubscriptionEventConsumer, error) {
 	creds := option.WithCredentialsJSON(credentialsJson)
-	client, err := pubsub.NewClient(context.Background(), projectId, creds)
+	client, err := pubsub.NewClient(ctx, projectId, creds)
 	if err != nil {
 		return nil, err
 	}
 
-	subscription := client.SubscriptionInProject(subscriptionId, projectId)
-	return &SubscriptionEventConsumer{subscription: subscription}, nil
+	return &SubscriptionEventConsumer{subscriber: client.Subscriber(subscriptionId)}, nil
 }
 
-func (c *SubscriptionEventConsumer) Subscribe(handler SubscriptionEventHandler) error {
+func (c *SubscriptionEventConsumer) Subscribe(ctx context.Context, handler SubscriptionEventHandler) error {
 	c.Stop()
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(ctx)
 	c.cancelFunc = &cancel
 
-	err := c.subscription.Receive(ctx, func(_ context.Context, m *pubsub.Message) {
-		var data []byte
-		if _, err := base64.StdEncoding.Decode(data, m.Data); err != nil {
+	err := c.subscriber.Receive(ctx, func(ctx context.Context, m *pubsub.Message) {
+		data, err := base64.StdEncoding.DecodeString(string(m.Data))
+		if err != nil {
 			log.Errorf("unable to decode message %s: %s", m.ID, err)
 			m.Nack()
 			return
@@ -51,8 +50,9 @@ func (c *SubscriptionEventConsumer) Subscribe(handler SubscriptionEventHandler) 
 			SubscriptionId:   notification.SubscriptionNotification.SubscriptionId,
 			PurchaseToken:    notification.SubscriptionNotification.PurchaseToken,
 		}
-		if err := handler.HandleSubscriptionEvent(event); err != nil {
+		if err := handler.HandleSubscriptionEvent(ctx, event); err != nil {
 			m.Nack()
+			return
 		}
 
 		m.Ack()
