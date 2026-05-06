@@ -19,7 +19,7 @@ import (
 )
 
 func Run(cfg *config.Config) {
-	log.Init(*cfg.LogsPath, *cfg.Environment == config.EnvDev)
+	log.InitWithService("subscription", *cfg.LogsPath, *cfg.Environment == config.EnvDev)
 	cfg.Print()
 
 	ctx := context.Background()
