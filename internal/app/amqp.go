@@ -1,6 +1,7 @@
 package app
 
 import (
+	"context"
 	auth "github.com/mephistolie/chefbook-backend-auth/api/mq"
 	"github.com/mephistolie/chefbook-backend-common/log"
 	"github.com/mephistolie/chefbook-backend-common/mq/config"
@@ -46,7 +47,11 @@ func NewMqConsumer(
 			return nil, err
 		}
 
-		log.Info("MQ Consumer initialized")
+		log.Log(context.Background(), log.Event{
+			Event:     "mq.consumer.initialized",
+			Message:   "mq consumer initialized",
+			Component: log.ComponentAMQP,
+		})
 	}
 
 	return consumer, nil

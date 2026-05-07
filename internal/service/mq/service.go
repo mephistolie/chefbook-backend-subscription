@@ -30,14 +30,30 @@ func NewService(
 func (s *Service) HandleMessage(msg model.MessageData) error {
 	ctx := context.Background()
 
-	log.Infof("processing message %s with type %s", msg.Id, msg.Type)
+	log.Log(ctx, log.Event{
+		Event:     "mq.message.processing",
+		Message:   "processing message",
+		Component: log.ComponentAMQP,
+		MessageID: msg.Id.String(),
+		Payload: map[string]any{
+			"message_type": msg.Type,
+		},
+	})
 	switch msg.Type {
 	case auth.MsgTypeProfileFirebaseImport:
 		return s.handleFirebaseImportMsg(ctx, msg.Id, msg.Body)
 	case auth.MsgTypeProfileDeleted:
 		return s.handleProfileDeletedMsg(ctx, msg.Id, msg.Body)
 	default:
-		log.Warnf("got unsupported message type %s for message %s", msg.Type, msg.Id)
+		log.LogWarn(ctx, log.Event{
+			Event:     "mq.message.unsupported_type",
+			Message:   "got unsupported message type",
+			Component: log.ComponentAMQP,
+			MessageID: msg.Id.String(),
+			Payload: map[string]any{
+				"message_type": msg.Type,
+			},
+		})
 		return errors.New("not implemented")
 	}
 }
@@ -55,7 +71,12 @@ func (s *Service) handleFirebaseImportMsg(ctx context.Context, messageId uuid.UU
 
 	profile, err := s.firebase.GetProfile(ctx, body.FirebaseId)
 	if err != nil {
-		log.Warnf("unable to get firebase profile for user %s: %s", body.UserId, err)
+		log.LogWarnError(ctx, log.Event{
+			Event:     "firebase.profile.load_failed",
+			Message:   "unable to get firebase profile",
+			Component: log.ComponentFirebase,
+			UserID:    body.UserId,
+		}, err)
 		return err
 	}
 
@@ -77,6 +98,12 @@ func (s *Service) handleProfileDeletedMsg(ctx context.Context, messageId uuid.UU
 		return err
 	}
 
-	log.Infof("deleting user %s...", body.UserId)
+	log.Log(ctx, log.Event{
+		Event:     "profile.deleted.message.processing",
+		Message:   "processing profile deleted message",
+		Component: log.ComponentAMQP,
+		MessageID: messageId.String(),
+		UserID:    body.UserId,
+	})
 	return s.repo.DeleteProfile(ctx, userId, messageId)
 }

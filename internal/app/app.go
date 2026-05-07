@@ -26,7 +26,11 @@ func Run(cfg *config.Config) {
 
 	db, err := postgres.Connect(ctx, cfg.Database)
 	if err != nil {
-		log.Fatal(err)
+		log.LogFatal(ctx, log.Event{
+			Event:     "app.startup.failed",
+			Message:   "service startup failed",
+			Component: "app",
+		}, err)
 		return
 	}
 
@@ -34,25 +38,41 @@ func Run(cfg *config.Config) {
 
 	grpcRepository, err := grpcRepo.NewRepository(cfg)
 	if err != nil {
-		log.Fatal(err)
+		log.LogFatal(ctx, log.Event{
+			Event:     "app.startup.failed",
+			Message:   "service startup failed",
+			Component: "app",
+		}, err)
 		return
 	}
 
 	subscriptionService, err := service.New(ctx, repository, grpcRepository, cfg)
 	if err != nil {
-		log.Fatal(err)
+		log.LogFatal(ctx, log.Event{
+			Event:     "app.startup.failed",
+			Message:   "service startup failed",
+			Component: "app",
+		}, err)
 		return
 	}
 
 	mqSubscriber, err := NewMqConsumer(cfg.Amqp, subscriptionService.MQ)
 	if err != nil {
-		log.Fatal(err)
+		log.LogFatal(ctx, log.Event{
+			Event:     "app.startup.failed",
+			Message:   "service startup failed",
+			Component: "app",
+		}, err)
 		return
 	}
 
 	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", *cfg.Port))
 	if err != nil {
-		log.Fatal(err)
+		log.LogFatal(ctx, log.Event{
+			Event:     "app.startup.failed",
+			Message:   "service startup failed",
+			Component: "app",
+		}, err)
 		return
 	}
 
@@ -72,9 +92,17 @@ func Run(cfg *config.Config) {
 
 	go func() {
 		if err := grpcServer.Serve(lis); err != nil {
-			log.Errorf("error occurred while running http server: %s\n", err.Error())
+			log.LogError(ctx, log.Event{
+				Event:     "grpc.server.failed",
+				Message:   "error occurred while running grpc server",
+				Component: log.ComponentGRPC,
+			}, err)
 		} else {
-			log.Info("gRPC server started")
+			log.Log(ctx, log.Event{
+				Event:     "grpc.server.started",
+				Message:   "grpc server started",
+				Component: log.ComponentGRPC,
+			})
 		}
 	}()
 
