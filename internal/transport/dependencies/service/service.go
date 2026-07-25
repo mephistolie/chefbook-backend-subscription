@@ -50,7 +50,7 @@ func New(
 		if err != nil {
 			return nil, err
 		}
-		log.Info("Firebase client initialized")
+		log.AutoInfo("Firebase client initialized")
 	}
 
 	var googleClient *googleRest.Client = nil
@@ -59,7 +59,7 @@ func New(
 		if err != nil {
 			return nil, err
 		}
-		log.Info("Google client initialized")
+		log.AutoInfo("Google client initialized")
 	}
 
 	return &Service{

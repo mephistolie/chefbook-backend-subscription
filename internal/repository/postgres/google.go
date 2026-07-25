@@ -20,7 +20,7 @@ func (r *Repository) GetUserIdByGooglePurchaseToken(ctx context.Context, purchas
 
 	rows, err := r.db.QueryContext(ctx, query, purchaseToken)
 	if err != nil {
-		log.Warnf("unable to get profile for google subscription purchase token %s: %s", purchaseToken, err)
+		log.AutoWarnf("unable to get profile for google subscription purchase token %s: %s", purchaseToken, err)
 		return nil, fail.GrpcUnknown
 	}
 	defer rows.Close()
@@ -31,7 +31,7 @@ func (r *Repository) GetUserIdByGooglePurchaseToken(ctx context.Context, purchas
 		}
 	}
 	if err = rows.Err(); err != nil {
-		log.Warnf("unable to iterate profile for google subscription purchase token %s: %s", purchaseToken, err)
+		log.AutoWarnf("unable to iterate profile for google subscription purchase token %s: %s", purchaseToken, err)
 		return nil, fail.GrpcUnknown
 	}
 

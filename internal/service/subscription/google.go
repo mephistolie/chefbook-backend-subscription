@@ -25,7 +25,7 @@ func (s *Service) ConfirmGoogleSubscription(ctx context.Context, userId uuid.UUI
 	}
 
 	if err = s.googleApi.AcknowledgeSubscriptionInfo(ctx, googleSubId, purchaseToken); err != nil {
-		log.Errorf("unable to acknowledge purchase: %s", err)
+		log.AutoErrorf("unable to acknowledge purchase: %s", err)
 		return err
 	}
 
@@ -84,7 +84,7 @@ func (s *Service) onSubscriptionAutoRenewStatusChanged(ctx context.Context, even
 
 	plan := s.googleSubMapper.Map(event.SubscriptionId)
 	if plan == nil {
-		log.Errorf("unable to parse google subscription ID %s in RTDN", event.SubscriptionId)
+		log.AutoErrorf("unable to parse google subscription ID %s in RTDN", event.SubscriptionId)
 		return subscriptionFail.GrpcInvalidSubscriptionId
 	}
 
@@ -107,7 +107,7 @@ func (s *Service) onSubscriptionRevoked(ctx context.Context, event pubsub.Subscr
 
 	subscriptionId := s.googleSubMapper.Map(event.SubscriptionId)
 	if subscriptionId == nil {
-		log.Errorf("unable to parse google subscription ID %s in RTDN", event.SubscriptionId)
+		log.AutoErrorf("unable to parse google subscription ID %s in RTDN", event.SubscriptionId)
 		return subscriptionFail.GrpcInvalidSubscriptionId
 	}
 
@@ -116,7 +116,7 @@ func (s *Service) onSubscriptionRevoked(ctx context.Context, event pubsub.Subscr
 
 func (s *Service) getGoogleSubscriptionInput(ctx context.Context, userId uuid.UUID, googleSubId, purchaseToken string) (entity.SubscriptionInput, error) {
 	if s.googleApi == nil {
-		log.Warnf("google subscription is disabled")
+		log.AutoWarnf("google subscription is disabled")
 		return entity.SubscriptionInput{}, subscriptionFail.GrpcInvalidPaymentService
 	}
 
@@ -127,7 +127,7 @@ func (s *Service) getGoogleSubscriptionInput(ctx context.Context, userId uuid.UU
 
 	info, err := s.googleApi.GetSubscriptionInfo(ctx, googleSubId, purchaseToken)
 	if err != nil {
-		log.Debugf("unable to validate purchase: %s", err)
+		log.AutoDebugf("unable to validate purchase: %s", err)
 		return entity.SubscriptionInput{}, fail.CreateGrpcClient(fail.TypeInvalidBody, "unable to validate purchase")
 	}
 
@@ -150,13 +150,13 @@ func (s *Service) validateGoogleSubscription(userId uuid.UUID, plan string, info
 	}
 	rawStartTime, err := strconv.ParseInt(strStartTime, 10, 64)
 	if err != nil {
-		log.Errorf("unable to parse subscription start time: %s", err)
+		log.AutoErrorf("unable to parse subscription start time: %s", err)
 		return entity.SubscriptionInput{}, fail.GrpcUnknown
 	}
 	startTime := time.UnixMilli(rawStartTime)
 	rawExpirationTime, err := strconv.ParseInt(info.ExpiryTimeMillis, 10, 64)
 	if err != nil {
-		log.Errorf("unable to parse subscription expiration time: %s", err)
+		log.AutoErrorf("unable to parse subscription expiration time: %s", err)
 		return entity.SubscriptionInput{}, fail.GrpcUnknown
 	}
 	expirationTime := time.UnixMilli(rawExpirationTime)

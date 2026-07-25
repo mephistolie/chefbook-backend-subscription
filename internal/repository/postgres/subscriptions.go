@@ -25,7 +25,7 @@ func (r *Repository) GetProfileSubscriptions(ctx context.Context, userId uuid.UU
 
 	rows, err := r.db.QueryContext(ctx, query, userId, now.Add(24*time.Hour), now)
 	if err != nil {
-		log.Errorf("unable to get profile %s subscriptions: %s", userId, err)
+		log.AutoErrorf("unable to get profile %s subscriptions: %s", userId, err)
 		return []entity.Subscription{}
 	}
 	defer rows.Close()
@@ -33,13 +33,13 @@ func (r *Repository) GetProfileSubscriptions(ctx context.Context, userId uuid.UU
 	for rows.Next() {
 		sub := entity.Subscription{}
 		if err = rows.Scan(&sub.Plan, &sub.Source, &sub.Expiration, &sub.AutoRenew); err != nil {
-			log.Errorf("unable to parse profile %s subscription: %s", userId, err)
+			log.AutoErrorf("unable to parse profile %s subscription: %s", userId, err)
 			continue
 		}
 		subscriptions = append(subscriptions, sub)
 	}
 	if err = rows.Err(); err != nil {
-		log.Errorf("unable to iterate profile %s subscriptions: %s", userId, err)
+		log.AutoErrorf("unable to iterate profile %s subscriptions: %s", userId, err)
 		return []entity.Subscription{}
 	}
 
@@ -83,7 +83,7 @@ func (r *Repository) createSubscription(ctx context.Context, input entity.Subscr
 		if isUniqueViolationError(err) {
 			return nil
 		}
-		log.Errorf("unable to add profile %s subscription: %s", input.UserId, err)
+		log.AutoErrorf("unable to add profile %s subscription: %s", input.UserId, err)
 		return fail.GrpcUnknown
 	}
 
@@ -98,7 +98,7 @@ func (r *Repository) UpdateProfileSubscription(ctx context.Context, input entity
 	`, subscriptionsTable)
 
 	if _, err := r.db.ExecContext(ctx, query, input.UserId, input.Plan, input.Source, input.Expiration, input.AutoRenew); err != nil {
-		log.Errorf("unable to update user %s subscription: %s", input.UserId, input.Plan)
+		log.AutoErrorf("unable to update user %s subscription: %s", input.UserId, input.Plan)
 		return fail.GrpcUnknown
 	}
 
@@ -113,7 +113,7 @@ func (r *Repository) SetProfileSubscriptionAutoRenewStatus(ctx context.Context, 
 	`, subscriptionsTable)
 
 	if _, err := r.db.ExecContext(ctx, query, input.UserId, input.Plan, input.Source, input.AutoRenew); err != nil {
-		log.Errorf("unable to update user %s subscription auto renew status: %s", input.UserId, input.Plan)
+		log.AutoErrorf("unable to update user %s subscription auto renew status: %s", input.UserId, input.Plan)
 		return fail.GrpcUnknown
 	}
 
@@ -128,7 +128,7 @@ func (r *Repository) EndProfileSubscription(ctx context.Context, userId uuid.UUI
 	`, subscriptionsTable)
 
 	if _, err := r.db.ExecContext(ctx, query, userId, plan, source, time.Now()); err != nil {
-		log.Errorf("unable to end profile %s subscription: %s", userId, plan)
+		log.AutoErrorf("unable to end profile %s subscription: %s", userId, plan)
 		return fail.GrpcUnknown
 	}
 

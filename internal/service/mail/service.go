@@ -42,7 +42,7 @@ func NewService(cfg *config.Config) (*Service, error) {
 }
 
 func (s *Service) SendEncryptedVaultDeletionMail(email, plan string) {
-	log.Info("sending subscription plan change mail to ", email)
+	log.AutoInfo("sending subscription plan change mail to ", email)
 	payload := mail.Payload{
 		To:      email,
 		Subject: "ChefBook Subscription Plan Change",
@@ -51,7 +51,7 @@ func (s *Service) SendEncryptedVaultDeletionMail(email, plan string) {
 		SubscriptionPlan: plan,
 	}
 	if err := payload.SetHtmlBody(assets.SubscriptionPlanChangeMailTmplFilePath, mailValues); err != nil {
-		log.Error("failed to set HTML Body for mail: ", err)
+		log.AutoError("failed to set HTML Body for mail: ", err)
 	}
 	s.sendMessage(payload)
 }

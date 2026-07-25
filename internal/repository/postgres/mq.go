@@ -25,7 +25,7 @@ func (r *Repository) GetExpiringSubscriptions(ctx context.Context) []entity.Expi
 
 	rows, err := r.db.QueryContext(ctx, query, now.Add(-2*24*time.Hour), now.Add(6*time.Hour))
 	if err != nil {
-		log.Errorf("unable to get expiring subscriptions: %s", err)
+		log.AutoErrorf("unable to get expiring subscriptions: %s", err)
 		return []entity.ExpiringSubscription{}
 	}
 	defer rows.Close()
@@ -33,13 +33,13 @@ func (r *Repository) GetExpiringSubscriptions(ctx context.Context) []entity.Expi
 	for rows.Next() {
 		sub := entity.ExpiringSubscription{}
 		if err = rows.Scan(&sub.UserId, &sub.Plan, &sub.Source); err != nil {
-			log.Errorf("unable to parse expiring subscription: %s", err)
+			log.AutoErrorf("unable to parse expiring subscription: %s", err)
 			continue
 		}
 		subscriptions = append(subscriptions, sub)
 	}
 	if err = rows.Err(); err != nil {
-		log.Errorf("unable to iterate expiring subscriptions: %s", err)
+		log.AutoErrorf("unable to iterate expiring subscriptions: %s", err)
 		return []entity.ExpiringSubscription{}
 	}
 
@@ -61,7 +61,7 @@ func (r *Repository) ImportPremiumVersion(ctx context.Context, userId, messageId
 	`, subscriptionsTable)
 
 	if _, err = tx.ExecContext(ctx, query, userId, subscription.PlanPremium, entity.SourceFirebase); err != nil {
-		log.Warnf("unable to import premium app version for profile %s: %s", userId, err)
+		log.AutoWarnf("unable to import premium app version for profile %s: %s", userId, err)
 		return errorWithTransactionRollback(tx, fail.GrpcUnknown)
 	}
 
@@ -83,7 +83,7 @@ func (r *Repository) DeleteProfile(ctx context.Context, userId, messageId uuid.U
 	`, subscriptionsTable)
 
 	if _, err = tx.ExecContext(ctx, query, userId); err != nil {
-		log.Warnf("unable to delete profile %s subscriptions: %s", userId, err)
+		log.AutoWarnf("unable to delete profile %s subscriptions: %s", userId, err)
 		return errorWithTransactionRollback(tx, fail.GrpcUnknown)
 	}
 
@@ -103,7 +103,7 @@ func (r *Repository) handleMessageIdempotently(ctx context.Context, messageId uu
 
 	if _, err = tx.ExecContext(ctx, addMessageQuery, messageId); err != nil {
 		if !isUniqueViolationError(err) {
-			log.Error("unable to add message to inbox: ", err)
+			log.AutoError("unable to add message to inbox: ", err)
 		}
 		return nil, errorWithTransactionRollback(tx, err)
 	}

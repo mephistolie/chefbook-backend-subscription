@@ -33,14 +33,14 @@ func (c *SubscriptionEventConsumer) Subscribe(ctx context.Context, handler Subsc
 	err := c.subscriber.Receive(ctx, func(ctx context.Context, m *pubsub.Message) {
 		data, err := base64.StdEncoding.DecodeString(string(m.Data))
 		if err != nil {
-			log.Errorf("unable to decode message %s: %s", m.ID, err)
+			log.AutoErrorf("unable to decode message %s: %s", m.ID, err)
 			m.Nack()
 			return
 		}
 
 		var notification DeveloperNotification
 		if err := json.Unmarshal(data, &notification); err != nil {
-			log.Errorf("unable to unmarshal message %s with body %s: %s", m.ID, data, err)
+			log.AutoErrorf("unable to unmarshal message %s with body %s: %s", m.ID, data, err)
 			m.Nack()
 			return
 		}
