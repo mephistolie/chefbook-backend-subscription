@@ -1,11 +1,13 @@
 package mail
 
 import (
-	"github.com/mephistolie/chefbook-backend-common/log"
+	"context"
+	"time"
+
 	"github.com/mephistolie/chefbook-backend-common/mail"
 	"github.com/mephistolie/chefbook-backend-subscription/assets"
 	"github.com/mephistolie/chefbook-backend-subscription/internal/config"
-	"time"
+	"github.com/mephistolie/chefbook-backend-subscription/internal/logging"
 )
 
 type subscriptionPlanChangeMailValues struct {
@@ -41,8 +43,8 @@ func NewService(cfg *config.Config) (*Service, error) {
 	}, nil
 }
 
-func (s *Service) SendEncryptedVaultDeletionMail(email, plan string) {
-	log.AutoInfo("sending subscription plan change mail to ", email)
+func (s *Service) SendEncryptedVaultDeletionMail(ctx context.Context, email, plan string) {
+	(logging.Events{}).SubscriptionMailSending(ctx, plan)
 	payload := mail.Payload{
 		To:      email,
 		Subject: "ChefBook Subscription Plan Change",
@@ -51,14 +53,16 @@ func (s *Service) SendEncryptedVaultDeletionMail(email, plan string) {
 		SubscriptionPlan: plan,
 	}
 	if err := payload.SetHtmlBody(assets.SubscriptionPlanChangeMailTmplFilePath, mailValues); err != nil {
-		log.AutoError("failed to set HTML Body for mail: ", err)
+		(logging.Events{}).SubscriptionMailRenderFailed(ctx, plan, err)
 	}
-	s.sendMessage(payload)
+	s.sendMessage(ctx, plan, payload)
 }
 
-func (s *Service) sendMessage(payload mail.Payload) {
+func (s *Service) sendMessage(ctx context.Context, plan string, payload mail.Payload) {
 	if s.IsDevEnv {
 		payload.Body = "DEV\n" + payload.Body
 	}
-	_ = s.sender.Send(payload, s.sendAttempts)
+	if err := s.sender.Send(payload, s.sendAttempts); err != nil {
+		(logging.Events{}).SubscriptionMailSendFailed(ctx, plan, err)
+	}
 }

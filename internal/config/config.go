@@ -2,8 +2,8 @@ package config
 
 import (
 	"context"
-	"github.com/mephistolie/chefbook-backend-common/log"
 	amqpConfig "github.com/mephistolie/chefbook-backend-common/mq/config"
+	"github.com/mephistolie/chefbook-backend-subscription/internal/logging"
 )
 
 const (
@@ -65,10 +65,6 @@ func (c Config) Validate() error {
 	return nil
 }
 
-func (c Config) Print() {
-	log.Log(context.Background(), log.Event{
-		Event:     "config.loaded",
-		Message:   "service configuration loaded",
-		Component: "config",
-	})
+func (c Config) Print(ctx context.Context) {
+	logging.Events{}.ConfigLoaded(ctx)
 }

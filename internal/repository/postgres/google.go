@@ -5,8 +5,8 @@ import (
 	"fmt"
 
 	"github.com/google/uuid"
-	"github.com/mephistolie/chefbook-backend-common/log"
 	"github.com/mephistolie/chefbook-backend-common/responses/fail"
+	"github.com/mephistolie/chefbook-backend-subscription/internal/logging"
 )
 
 func (r *Repository) GetUserIdByGooglePurchaseToken(ctx context.Context, purchaseToken string) (*uuid.UUID, error) {
@@ -20,7 +20,7 @@ func (r *Repository) GetUserIdByGooglePurchaseToken(ctx context.Context, purchas
 
 	rows, err := r.db.QueryContext(ctx, query, purchaseToken)
 	if err != nil {
-		log.AutoWarnf("unable to get profile for google subscription purchase token %s: %s", purchaseToken, err)
+		(logging.Events{}).GooglePurchaseLookupFailed(ctx, "query_purchase_owner", err)
 		return nil, fail.GrpcUnknown
 	}
 	defer rows.Close()
@@ -31,7 +31,7 @@ func (r *Repository) GetUserIdByGooglePurchaseToken(ctx context.Context, purchas
 		}
 	}
 	if err = rows.Err(); err != nil {
-		log.AutoWarnf("unable to iterate profile for google subscription purchase token %s: %s", purchaseToken, err)
+		(logging.Events{}).GooglePurchaseLookupFailed(ctx, "iterate_purchase_owner", err)
 		return nil, fail.GrpcUnknown
 	}
 

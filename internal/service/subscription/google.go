@@ -2,16 +2,17 @@ package subscription
 
 import (
 	"context"
+	"strconv"
+	"time"
+
 	"github.com/google/uuid"
 	authApi "github.com/mephistolie/chefbook-backend-auth/api/proto/implementation/v1"
-	"github.com/mephistolie/chefbook-backend-common/log"
 	"github.com/mephistolie/chefbook-backend-common/responses/fail"
 	"github.com/mephistolie/chefbook-backend-subscription/internal/entity"
 	subscriptionFail "github.com/mephistolie/chefbook-backend-subscription/internal/entity/fail"
+	"github.com/mephistolie/chefbook-backend-subscription/internal/logging"
 	"github.com/mephistolie/chefbook-backend-subscription/pkg/subscription/google/cloud/pubsub"
 	"github.com/mephistolie/chefbook-backend-subscription/pkg/subscription/google/rest"
-	"strconv"
-	"time"
 )
 
 func (s *Service) ConfirmGoogleSubscription(ctx context.Context, userId uuid.UUID, googleSubId, purchaseToken string) error {
@@ -25,13 +26,14 @@ func (s *Service) ConfirmGoogleSubscription(ctx context.Context, userId uuid.UUI
 	}
 
 	if err = s.googleApi.AcknowledgeSubscriptionInfo(ctx, googleSubId, purchaseToken); err != nil {
-		log.AutoErrorf("unable to acknowledge purchase: %s", err)
+		(logging.Events{}).GooglePurchaseAcknowledgeFailed(ctx, userId.String())
 		return err
 	}
 
 	go func() {
-		if info, err := s.grpc.Auth.GetAuthInfo(context.WithoutCancel(ctx), &authApi.GetAuthInfoRequest{Id: userId.String()}); err == nil {
-			s.mail.SendEncryptedVaultDeletionMail(info.Email, input.Plan)
+		mailCtx := context.WithoutCancel(ctx)
+		if info, err := s.grpc.Auth.GetAuthInfo(mailCtx, &authApi.GetAuthInfoRequest{Id: userId.String()}); err == nil {
+			s.mail.SendEncryptedVaultDeletionMail(mailCtx, info.Email, input.Plan)
 		}
 	}()
 
@@ -84,7 +86,7 @@ func (s *Service) onSubscriptionAutoRenewStatusChanged(ctx context.Context, even
 
 	plan := s.googleSubMapper.Map(event.SubscriptionId)
 	if plan == nil {
-		log.AutoErrorf("unable to parse google subscription ID %s in RTDN", event.SubscriptionId)
+		(logging.Events{}).GoogleSubscriptionMappingFailed(ctx, event.NotificationType)
 		return subscriptionFail.GrpcInvalidSubscriptionId
 	}
 
@@ -107,7 +109,7 @@ func (s *Service) onSubscriptionRevoked(ctx context.Context, event pubsub.Subscr
 
 	subscriptionId := s.googleSubMapper.Map(event.SubscriptionId)
 	if subscriptionId == nil {
-		log.AutoErrorf("unable to parse google subscription ID %s in RTDN", event.SubscriptionId)
+		(logging.Events{}).GoogleSubscriptionMappingFailed(ctx, event.NotificationType)
 		return subscriptionFail.GrpcInvalidSubscriptionId
 	}
 
@@ -116,7 +118,7 @@ func (s *Service) onSubscriptionRevoked(ctx context.Context, event pubsub.Subscr
 
 func (s *Service) getGoogleSubscriptionInput(ctx context.Context, userId uuid.UUID, googleSubId, purchaseToken string) (entity.SubscriptionInput, error) {
 	if s.googleApi == nil {
-		log.AutoWarnf("google subscription is disabled")
+		(logging.Events{}).GoogleSubscriptionsDisabled(ctx)
 		return entity.SubscriptionInput{}, subscriptionFail.GrpcInvalidPaymentService
 	}
 
@@ -127,11 +129,11 @@ func (s *Service) getGoogleSubscriptionInput(ctx context.Context, userId uuid.UU
 
 	info, err := s.googleApi.GetSubscriptionInfo(ctx, googleSubId, purchaseToken)
 	if err != nil {
-		log.AutoDebugf("unable to validate purchase: %s", err)
+		(logging.Events{}).GooglePurchaseValidationFailed(ctx)
 		return entity.SubscriptionInput{}, fail.CreateGrpcClient(fail.TypeInvalidBody, "unable to validate purchase")
 	}
 
-	input, err := s.validateGoogleSubscription(userId, *plan, *info)
+	input, err := s.validateGoogleSubscription(ctx, userId, *plan, *info)
 	if err != nil {
 		return entity.SubscriptionInput{}, err
 	}
@@ -139,7 +141,7 @@ func (s *Service) getGoogleSubscriptionInput(ctx context.Context, userId uuid.UU
 	return input, nil
 }
 
-func (s *Service) validateGoogleSubscription(userId uuid.UUID, plan string, info rest.SubscriptionPurchase) (entity.SubscriptionInput, error) {
+func (s *Service) validateGoogleSubscription(ctx context.Context, userId uuid.UUID, plan string, info rest.SubscriptionPurchase) (entity.SubscriptionInput, error) {
 	if info.PaymentState == nil || *info.PaymentState == rest.PaymentStatePending {
 		return entity.SubscriptionInput{}, subscriptionFail.GrpcSubscriptionInactive
 	}
@@ -150,13 +152,13 @@ func (s *Service) validateGoogleSubscription(userId uuid.UUID, plan string, info
 	}
 	rawStartTime, err := strconv.ParseInt(strStartTime, 10, 64)
 	if err != nil {
-		log.AutoErrorf("unable to parse subscription start time: %s", err)
+		(logging.Events{}).GoogleSubscriptionTimestampParseFailed(ctx, "start")
 		return entity.SubscriptionInput{}, fail.GrpcUnknown
 	}
 	startTime := time.UnixMilli(rawStartTime)
 	rawExpirationTime, err := strconv.ParseInt(info.ExpiryTimeMillis, 10, 64)
 	if err != nil {
-		log.AutoErrorf("unable to parse subscription expiration time: %s", err)
+		(logging.Events{}).GoogleSubscriptionTimestampParseFailed(ctx, "expiration")
 		return entity.SubscriptionInput{}, fail.GrpcUnknown
 	}
 	expirationTime := time.UnixMilli(rawExpirationTime)

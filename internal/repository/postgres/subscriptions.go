@@ -7,10 +7,10 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/mephistolie/chefbook-backend-common/log"
 	"github.com/mephistolie/chefbook-backend-common/responses/fail"
 	"github.com/mephistolie/chefbook-backend-common/subscription"
 	"github.com/mephistolie/chefbook-backend-subscription/internal/entity"
+	"github.com/mephistolie/chefbook-backend-subscription/internal/logging"
 )
 
 func (r *Repository) GetProfileSubscriptions(ctx context.Context, userId uuid.UUID) []entity.Subscription {
@@ -25,7 +25,7 @@ func (r *Repository) GetProfileSubscriptions(ctx context.Context, userId uuid.UU
 
 	rows, err := r.db.QueryContext(ctx, query, userId, now.Add(24*time.Hour), now)
 	if err != nil {
-		log.AutoErrorf("unable to get profile %s subscriptions: %s", userId, err)
+		(logging.Events{}).ProfileSubscriptionsQueryFailed(ctx, userId.String(), err)
 		return []entity.Subscription{}
 	}
 	defer rows.Close()
@@ -33,13 +33,13 @@ func (r *Repository) GetProfileSubscriptions(ctx context.Context, userId uuid.UU
 	for rows.Next() {
 		sub := entity.Subscription{}
 		if err = rows.Scan(&sub.Plan, &sub.Source, &sub.Expiration, &sub.AutoRenew); err != nil {
-			log.AutoErrorf("unable to parse profile %s subscription: %s", userId, err)
+			(logging.Events{}).ProfileSubscriptionScanFailed(ctx, userId.String(), err)
 			continue
 		}
 		subscriptions = append(subscriptions, sub)
 	}
 	if err = rows.Err(); err != nil {
-		log.AutoErrorf("unable to iterate profile %s subscriptions: %s", userId, err)
+		(logging.Events{}).ProfileSubscriptionsIterationFailed(ctx, userId.String(), err)
 		return []entity.Subscription{}
 	}
 
@@ -83,7 +83,7 @@ func (r *Repository) createSubscription(ctx context.Context, input entity.Subscr
 		if isUniqueViolationError(err) {
 			return nil
 		}
-		log.AutoErrorf("unable to add profile %s subscription: %s", input.UserId, err)
+		(logging.Events{}).SubscriptionCreateFailed(ctx, subscriptionLogData(input), err)
 		return fail.GrpcUnknown
 	}
 
@@ -98,7 +98,7 @@ func (r *Repository) UpdateProfileSubscription(ctx context.Context, input entity
 	`, subscriptionsTable)
 
 	if _, err := r.db.ExecContext(ctx, query, input.UserId, input.Plan, input.Source, input.Expiration, input.AutoRenew); err != nil {
-		log.AutoErrorf("unable to update user %s subscription: %s", input.UserId, input.Plan)
+		(logging.Events{}).SubscriptionUpdateFailed(ctx, subscriptionLogData(input), err)
 		return fail.GrpcUnknown
 	}
 
@@ -113,7 +113,7 @@ func (r *Repository) SetProfileSubscriptionAutoRenewStatus(ctx context.Context, 
 	`, subscriptionsTable)
 
 	if _, err := r.db.ExecContext(ctx, query, input.UserId, input.Plan, input.Source, input.AutoRenew); err != nil {
-		log.AutoErrorf("unable to update user %s subscription auto renew status: %s", input.UserId, input.Plan)
+		(logging.Events{}).SubscriptionAutoRenewUpdateFailed(ctx, subscriptionLogData(input), err)
 		return fail.GrpcUnknown
 	}
 
@@ -128,9 +128,22 @@ func (r *Repository) EndProfileSubscription(ctx context.Context, userId uuid.UUI
 	`, subscriptionsTable)
 
 	if _, err := r.db.ExecContext(ctx, query, userId, plan, source, time.Now()); err != nil {
-		log.AutoErrorf("unable to end profile %s subscription: %s", userId, plan)
+		(logging.Events{}).SubscriptionEndFailed(ctx, logging.SubscriptionData{
+			UserID: userId.String(),
+			Plan:   plan,
+			Source: source,
+		}, err)
 		return fail.GrpcUnknown
 	}
 
 	return nil
+}
+
+func subscriptionLogData(input entity.SubscriptionInput) logging.SubscriptionData {
+	return logging.SubscriptionData{
+		UserID:    input.UserId.String(),
+		Plan:      input.Plan,
+		Source:    input.Source,
+		AutoRenew: input.AutoRenew,
+	}
 }

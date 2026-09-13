@@ -3,10 +3,10 @@ package app
 import (
 	"context"
 	auth "github.com/mephistolie/chefbook-backend-auth/api/mq"
-	"github.com/mephistolie/chefbook-backend-common/log"
 	"github.com/mephistolie/chefbook-backend-common/mq/config"
 	mqConsumer "github.com/mephistolie/chefbook-backend-common/mq/consumer"
 	mqApi "github.com/mephistolie/chefbook-backend-common/mq/dependencies"
+	"github.com/mephistolie/chefbook-backend-subscription/internal/logging"
 	amqp "github.com/wagslane/go-rabbitmq"
 )
 
@@ -18,6 +18,7 @@ var supportedMsgTypes = []string{
 }
 
 func NewMqConsumer(
+	ctx context.Context,
 	cfg config.Amqp,
 	service mqApi.Inbox,
 ) (*mqConsumer.Consumer, error) {
@@ -47,11 +48,7 @@ func NewMqConsumer(
 			return nil, err
 		}
 
-		log.Log(context.Background(), log.Event{
-			Event:     "mq.consumer.initialized",
-			Message:   "mq consumer initialized",
-			Component: log.ComponentAMQP,
-		})
+		logging.Events{}.MQConsumerInitialized(ctx)
 	}
 
 	return consumer, nil

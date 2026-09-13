@@ -6,7 +6,7 @@ import (
 	"encoding/json"
 
 	"cloud.google.com/go/pubsub/v2"
-	"github.com/mephistolie/chefbook-backend-common/log"
+	"github.com/mephistolie/chefbook-backend-subscription/internal/logging"
 	"google.golang.org/api/option"
 )
 
@@ -33,14 +33,14 @@ func (c *SubscriptionEventConsumer) Subscribe(ctx context.Context, handler Subsc
 	err := c.subscriber.Receive(ctx, func(ctx context.Context, m *pubsub.Message) {
 		data, err := base64.StdEncoding.DecodeString(string(m.Data))
 		if err != nil {
-			log.AutoErrorf("unable to decode message %s: %s", m.ID, err)
+			(logging.Events{}).GoogleNotificationDecodeFailed(ctx, m.ID, err)
 			m.Nack()
 			return
 		}
 
 		var notification DeveloperNotification
 		if err := json.Unmarshal(data, &notification); err != nil {
-			log.AutoErrorf("unable to unmarshal message %s with body %s: %s", m.ID, data, err)
+			(logging.Events{}).GoogleNotificationUnmarshalFailed(ctx, m.ID, err)
 			m.Nack()
 			return
 		}

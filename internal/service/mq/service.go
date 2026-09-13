@@ -7,8 +7,8 @@ import (
 	"github.com/google/uuid"
 	auth "github.com/mephistolie/chefbook-backend-auth/api/mq"
 	"github.com/mephistolie/chefbook-backend-common/firebase"
-	"github.com/mephistolie/chefbook-backend-common/log"
 	"github.com/mephistolie/chefbook-backend-common/mq/model"
+	"github.com/mephistolie/chefbook-backend-subscription/internal/logging"
 	"github.com/mephistolie/chefbook-backend-subscription/internal/service/dependencies/repository"
 )
 
@@ -30,30 +30,14 @@ func NewService(
 func (s *Service) HandleMessage(msg model.MessageData) error {
 	ctx := context.Background()
 
-	log.Log(ctx, log.Event{
-		Event:     "mq.message.processing",
-		Message:   "processing message",
-		Component: log.ComponentAMQP,
-		MessageID: msg.Id.String(),
-		Payload: map[string]any{
-			"message_type": msg.Type,
-		},
-	})
+	logging.Events{}.MQMessageProcessing(ctx, msg.Id.String(), msg.Type)
 	switch msg.Type {
 	case auth.MsgTypeProfileFirebaseImport:
 		return s.handleFirebaseImportMsg(ctx, msg.Id, msg.Body)
 	case auth.MsgTypeProfileDeleted:
 		return s.handleProfileDeletedMsg(ctx, msg.Id, msg.Body)
 	default:
-		log.LogWarn(ctx, log.Event{
-			Event:     "mq.message.unsupported_type",
-			Message:   "got unsupported message type",
-			Component: log.ComponentAMQP,
-			MessageID: msg.Id.String(),
-			Payload: map[string]any{
-				"message_type": msg.Type,
-			},
-		})
+		logging.Events{}.MQMessageTypeUnsupported(ctx, msg.Id.String(), msg.Type)
 		return errors.New("not implemented")
 	}
 }
@@ -71,12 +55,7 @@ func (s *Service) handleFirebaseImportMsg(ctx context.Context, messageId uuid.UU
 
 	profile, err := s.firebase.GetProfile(ctx, body.FirebaseId)
 	if err != nil {
-		log.LogWarnError(ctx, log.Event{
-			Event:     "firebase.profile.load_failed",
-			Message:   "unable to get firebase profile",
-			Component: log.ComponentFirebase,
-			UserID:    body.UserId,
-		}, err)
+		logging.Events{}.FirebaseProfileLoadFailed(ctx, body.UserId)
 		return err
 	}
 
@@ -98,12 +77,6 @@ func (s *Service) handleProfileDeletedMsg(ctx context.Context, messageId uuid.UU
 		return err
 	}
 
-	log.Log(ctx, log.Event{
-		Event:     "profile.deleted.message.processing",
-		Message:   "processing profile deleted message",
-		Component: log.ComponentAMQP,
-		MessageID: messageId.String(),
-		UserID:    body.UserId,
-	})
+	logging.Events{}.ProfileDeletedMessageProcessing(ctx, messageId.String(), body.UserId)
 	return s.repo.DeleteProfile(ctx, userId, messageId)
 }

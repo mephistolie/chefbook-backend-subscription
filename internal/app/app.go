@@ -7,6 +7,7 @@ import (
 	"github.com/mephistolie/chefbook-backend-common/shutdown"
 	subscriptionpb "github.com/mephistolie/chefbook-backend-subscription/api/proto/implementation/v1"
 	"github.com/mephistolie/chefbook-backend-subscription/internal/config"
+	"github.com/mephistolie/chefbook-backend-subscription/internal/logging"
 	grpcRepo "github.com/mephistolie/chefbook-backend-subscription/internal/repository/grpc"
 	"github.com/mephistolie/chefbook-backend-subscription/internal/repository/postgres"
 	"github.com/mephistolie/chefbook-backend-subscription/internal/transport/dependencies/service"
@@ -20,17 +21,12 @@ import (
 
 func Run(cfg *config.Config) {
 	log.InitWithService("subscription", *cfg.LogsPath, *cfg.Environment == config.EnvDev)
-	cfg.Print()
-
 	ctx := context.Background()
+	cfg.Print(ctx)
 
 	db, err := postgres.Connect(ctx, cfg.Database)
 	if err != nil {
-		log.LogFatal(ctx, log.Event{
-			Event:     "app.startup.failed",
-			Message:   "service startup failed",
-			Component: "app",
-		}, err)
+		logging.Events{}.StartupFailed(ctx, "connect_postgres")
 		return
 	}
 
@@ -38,41 +34,25 @@ func Run(cfg *config.Config) {
 
 	grpcRepository, err := grpcRepo.NewRepository(cfg)
 	if err != nil {
-		log.LogFatal(ctx, log.Event{
-			Event:     "app.startup.failed",
-			Message:   "service startup failed",
-			Component: "app",
-		}, err)
+		logging.Events{}.StartupFailed(ctx, "initialize_grpc_clients")
 		return
 	}
 
 	subscriptionService, err := service.New(ctx, repository, grpcRepository, cfg)
 	if err != nil {
-		log.LogFatal(ctx, log.Event{
-			Event:     "app.startup.failed",
-			Message:   "service startup failed",
-			Component: "app",
-		}, err)
+		logging.Events{}.StartupFailed(ctx, "initialize_service")
 		return
 	}
 
-	mqSubscriber, err := NewMqConsumer(cfg.Amqp, subscriptionService.MQ)
+	mqSubscriber, err := NewMqConsumer(ctx, cfg.Amqp, subscriptionService.MQ)
 	if err != nil {
-		log.LogFatal(ctx, log.Event{
-			Event:     "app.startup.failed",
-			Message:   "service startup failed",
-			Component: "app",
-		}, err)
+		logging.Events{}.StartupFailed(ctx, "initialize_mq_consumer")
 		return
 	}
 
 	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", *cfg.Port))
 	if err != nil {
-		log.LogFatal(ctx, log.Event{
-			Event:     "app.startup.failed",
-			Message:   "service startup failed",
-			Component: "app",
-		}, err)
+		logging.Events{}.StartupFailed(ctx, "listen_grpc")
 		return
 	}
 
@@ -85,24 +65,15 @@ func Run(cfg *config.Config) {
 	healthServer := health.NewServer()
 	subscriptionServer := subscription.NewServer(subscriptionService.Subscription)
 
-	go monitorHealthChecking(db, healthServer)
+	go monitorHealthChecking(ctx, db, healthServer)
 
 	subscriptionpb.RegisterSubscriptionServiceServer(grpcServer, subscriptionServer)
 	healthpb.RegisterHealthServer(grpcServer, healthServer)
 
+	logging.Events{}.GRPCServerStarted(ctx)
 	go func() {
 		if err := grpcServer.Serve(lis); err != nil {
-			log.LogError(ctx, log.Event{
-				Event:     "grpc.server.failed",
-				Message:   "error occurred while running grpc server",
-				Component: log.ComponentGRPC,
-			}, err)
-		} else {
-			log.Log(ctx, log.Event{
-				Event:     "grpc.server.started",
-				Message:   "grpc server started",
-				Component: log.ComponentGRPC,
-			})
+			logging.Events{}.GRPCServerFailed(ctx, err)
 		}
 	}()
 

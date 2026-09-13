@@ -5,10 +5,10 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/mephistolie/chefbook-backend-common/firebase"
-	"github.com/mephistolie/chefbook-backend-common/log"
 	mq "github.com/mephistolie/chefbook-backend-common/mq/dependencies"
 	"github.com/mephistolie/chefbook-backend-subscription/internal/config"
 	"github.com/mephistolie/chefbook-backend-subscription/internal/entity"
+	"github.com/mephistolie/chefbook-backend-subscription/internal/logging"
 	"github.com/mephistolie/chefbook-backend-subscription/internal/repository/grpc"
 	"github.com/mephistolie/chefbook-backend-subscription/internal/repository/postgres"
 	"github.com/mephistolie/chefbook-backend-subscription/internal/service/helpers/google"
@@ -50,7 +50,7 @@ func New(
 		if err != nil {
 			return nil, err
 		}
-		log.AutoInfo("Firebase client initialized")
+		(logging.Events{}).DependencyInitialized(ctx, "firebase")
 	}
 
 	var googleClient *googleRest.Client = nil
@@ -59,7 +59,7 @@ func New(
 		if err != nil {
 			return nil, err
 		}
-		log.AutoInfo("Google client initialized")
+		(logging.Events{}).DependencyInitialized(ctx, "google_play")
 	}
 
 	return &Service{
