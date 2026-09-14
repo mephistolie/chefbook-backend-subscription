@@ -10,7 +10,7 @@ require (
 	github.com/mephistolie/chefbook-backend-auth/api v1.9.0-rc.1
 	github.com/mephistolie/chefbook-backend-common/firebase v0.10.0
 	github.com/mephistolie/chefbook-backend-common/log v0.10.0
-	github.com/mephistolie/chefbook-backend-common/mail v0.7.0
+	github.com/mephistolie/chefbook-backend-common/mail v0.7.1
 	github.com/mephistolie/chefbook-backend-common/migrate/sql v0.8.1
 	github.com/mephistolie/chefbook-backend-common/mq v0.14.0
 	github.com/mephistolie/chefbook-backend-common/responses v0.10.0
